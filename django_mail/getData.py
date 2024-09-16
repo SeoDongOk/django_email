@@ -6,6 +6,58 @@ import numpy as np
 from bs4 import BeautifulSoup
 
 
+def getMma(page):
+  url = "https://work.mma.go.kr/caisBYIS/search/cygonggogeomsaek.do?menu_id=m_m7_1"
+  form_data = {
+    'ar_eopjong_gbcd': '11111',
+    'eopjong_gbcd_list': '11111',
+    'eopjong_gbcd': '1',
+    'gegyumo_cd': '',
+    'eopche_nm': '',
+    'juso': '',
+    'sido_addr': '',
+    'sigungu_addr': '',
+    'cyjemok_nm': '',
+    'yeokjong_brcd': '',
+    'jeonjik_yn': '',
+    'searchCondition': '',
+    'searchKeyword': '',
+    'searchKeyword_dp': '',
+    'searchCondition_bmgb': '',
+    'searchCondition_ykjng': '',
+    'pageUnit': '10',
+    'pageIndex': str(page),
+    'menu_id': '',
+    'jbc_cd': ''
+}
+
+  response=requests.post(url,data=form_data)
+  response.encoding = 'utf-8'
+  soup=BeautifulSoup(response.text,"html.parser")
+  target = []
+  base_url= "https://work.mma.go.kr/"
+  for i in soup.find_all("tr"):
+    if "href" in str(i):
+      try:
+        target_list=i.find_all("td")
+        raw_link=target_list[0].find("a")
+        link=raw_link.attrs["href"]
+        company=target_list[1].text
+        company = re.sub("\n","",company)
+        company = re.sub("\r","",company)
+        target.append({
+        "업로드위치":base_url,
+        "공고명":  target_list[0].text,
+        "공고회사": company,
+        "공고주소": base_url + str(link)
+    })
+      except:
+        continue
+  df = pd.DataFrame(target)
+  print(len(df))
+  return df
+
+
 def getWanted():
   url = "https://www.wanted.co.kr/api/chaos/navigation/v1/results?1726455232533=&job_group_id=518&job_ids=10110&country=kr&job_sort=job.recommend_order&years=0&years=1&locations=seoul.all&attraction_tags=10445&limit=20"
   res=requests.get(url)
@@ -59,7 +111,6 @@ def getJobKorea(page):
         "공고주소": base_url + company.attrs["href"]
     })
   df = pd.DataFrame(target)
-  print(target)
   return df
 
 def getData():
@@ -67,7 +118,11 @@ def getData():
   for i in range(1,3):
     df = getJobKorea(i)
     total_df=pd.concat([total_df,df])
+  for i in range(1,10):
+    df = getMma(i)
+    total_df=pd.concat([total_df,df])
   wanted_df = getWanted()
   total_df = pd.concat([total_df,wanted_df])
   total_df.dropna(axis=0,inplace=True)
+  total_df.drop_duplicates(keep="first",inplace=True)
   return total_df
